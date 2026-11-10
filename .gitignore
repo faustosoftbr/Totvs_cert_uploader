@@ -1,0 +1,31 @@
+# Ambientes virtuais e cache Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / PyInstaller
+build/
+dist/
+*.spec.bak
+
+# Arquivos de ambiente e credenciais locais (NUNCA COMMITAR)
+.env
+.env.*
+!.env.example
+_secrets.py
+secrets.json
+config.json
+.browser_profile/
+
+# Certificados e chaves criptograficas (NUNCA COMMITAR)
+*.pfx
+*.p12
+*.cer
+*.crt
+*.key
+*.pem
+
+# Logs
+*.log
