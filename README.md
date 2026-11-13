@@ -1,6 +1,6 @@
 # TOTVS Cert Uploader (NFe / NFCe)
 
-Aplicativo Desktop em Python (`CustomTkinter` + `Playwright` + `cryptography` + `pyodbc`) para leitura, validação local, atualização no banco SQL Server local (MISTERCHEFNET), envio aos portais TOTVS (Portal TEC, Chef Web Cloud e TPF), instalação no repositório de certificados do Windows e telemetria de logs via Webhook.
+Aplicativo Desktop em Python (`CustomTkinter` + `Playwright` + `cryptography` + `pyodbc`) para leitura, validação local, atualização no banco SQL Server local (MISTERCHEFNET), envio aos portais TOTVS (Portal TEC e Chef Web Cloud), instalação no repositório de certificados do Windows e telemetria de logs via Webhook.
 
 ---
 
@@ -23,7 +23,7 @@ Em vez de depender de um site remoto limitado, o cliente recebe um executável �
 | :--- | :--- |
 | **`v1.0.0`** | Versão inicial com campos manuais de login e senha do Portal TEC. |
 | **`v2.0.0`** | Versão para cliente final com credenciais embutidas e upload exclusivo no Portal TEC. |
-| **`v3.0.0`** | **Pipeline Completo Integrado**: <br>1. Validação local do PFX (CNPJ, Razão Social, Validade e Subject DN).<br>2. Consulta e atualização do SQL Server local (`[MISTERCHEFNET].[dbo].[Lojas]`).<br>3. Upload no Portal TEC (Totvs Hospitalidade).<br>4. Upload no Chef Web Cloud (localizando a loja pelo Nome Fantasia).<br>5. Instalação do certificado no repositório do Windows como Exportável.<br>6. Upload na Plataforma Fiscal TPF (caso utilize módulo NFe).<br>7. Solicitação opcional de reinicialização do Windows.<br>8. Telemetria e envio de logs por e-mail via Google Apps Script Webhook. |
+| **`v3.0.0`** | **Pipeline Completo Integrado**: <br>1. Validação local do PFX (CNPJ, Razão Social, Validade e Subject DN).<br>2. Consulta e atualização do SQL Server local (`[MISTERCHEFNET].[dbo].[Lojas]`).<br>3. Upload no Portal TEC (Totvs Hospitalidade).<br>4. Upload no Chef Web Cloud (localizando a loja pelo Nome Fantasia).<br>5. Instalação do certificado no repositório do Windows como Exportável.<br>6. Lembrete com link direto no log para atualização manual na Plataforma Fiscal TPF (caso utilize módulo NFe).<br>7. Solicitação opcional de reinicialização do Windows.<br>8. Telemetria e envio de logs por e-mail via Google Apps Script Webhook. |
 
 ---
 
@@ -34,7 +34,6 @@ Em vez de depender de um site remoto limitado, o cliente recebe um executável �
 - `db_service.py`: Camada de comunicação com o SQL Server local (Loja 1 e detecção de NFe).
 - `totvs_tec.py`: Automação Playwright em segundo plano para o Portal TEC.
 - `totvs_chef_web.py`: Automação Playwright para o Chef Web Cloud.
-- `totvs_tpf.py`: Automação Playwright para a Plataforma Fiscal Totvs (TPF).
 - `logger_service.py`: Log em tempo real, persistência em arquivo e despacho via Webhook.
 - `secrets_manager.py`: Gerenciamento seguro de credenciais locais via `.env` (ignorado pelo Git) e CLI interativa para consulta/alteração.
 - `gas_webhook.js`: Script do Google Apps Script para disparo seguro de e-mails via GmailApp.
@@ -55,4 +54,4 @@ Para configurar em um novo ambiente:
    python secrets_manager.py
    ```
 
-O comando exibirá o menu interativo para visualizar (mascarado ou sem máscara) e atualizar credenciais do Portal TEC, Chef Web Cloud, Plataforma Fiscal TPF, SQL Server e Webhook de Logs, persistindo diretamente no arquivo local `.env`.
+O comando exibirá o menu interativo para visualizar (mascarado ou sem máscara) e atualizar credenciais do Portal TEC, Chef Web Cloud, SQL Server e Webhook de Logs, persistindo diretamente no arquivo local `.env`.

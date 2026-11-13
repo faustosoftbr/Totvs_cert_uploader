@@ -18,7 +18,6 @@ from logger_service import LoggerService
 from reboot_service import reiniciar_computador_windows
 from totvs_chef_web import TotvsChefWebError, TotvsChefWebUploader
 from totvs_tec import TotvsTecError, TotvsTecUploader
-from totvs_tpf import TotvsTpfError, TotvsTpfUploader
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
@@ -309,7 +308,7 @@ class CertUploaderApp(ctk.CTk):
             # -------------------------------------------------------------
             # PASSO 2: Consultar e Atualizar SQL Server local (Loja 1)
             # -------------------------------------------------------------
-            self._set_banner("Passo 2/7: Conectando ao SQL Server e consultando Loja 1...", "working")
+            self._set_banner("Passo 2/5: Conectando ao SQL Server e consultando Loja 1...", "working")
             self.logger.log("[PASSO 2] Conectando ao banco de dados MISTERCHEFNET...")
             loja = db_service.consultar_loja_1()
             empresa_identificador = f"{loja.nome_loja} ({loja.cnpj})"
@@ -337,7 +336,7 @@ class CertUploaderApp(ctk.CTk):
             # -------------------------------------------------------------
             # PASSO 3: Atualizar Portal TEC (Totvs Hospitalidade)
             # -------------------------------------------------------------
-            self._set_banner("Passo 3/7: Enviando certificado para o Portal TEC...", "working")
+            self._set_banner("Passo 3/5: Enviando certificado para o Portal TEC...", "working")
             self.logger.log("[PASSO 3] Iniciando automação no Portal TEC...")
             tec_uploader = TotvsTecUploader(log_callback=self.logger.log, headless=False)
             target_cnpj = cert.cnpj_formatado or format_cnpj(cert.cnpj_numeros) or loja.cnpj
@@ -349,7 +348,7 @@ class CertUploaderApp(ctk.CTk):
             # -------------------------------------------------------------
             # PASSO 4: Atualizar Chef Web Cloud
             # -------------------------------------------------------------
-            self._set_banner("Passo 4/7: Atualizando certificado no Chef Web Cloud...", "working")
+            self._set_banner("Passo 4/5: Atualizando certificado no Chef Web Cloud...", "working")
             self.logger.log(f"[PASSO 4] Iniciando automação no Chef Web Cloud para '{loja.nome_loja}'...")
             chef_uploader = TotvsChefWebUploader(log_callback=self.logger.log, headless=False)
             chef_res = chef_uploader.run(nome_loja=loja.nome_loja, cert_path=cert_path, cert_password=cert_pwd)
@@ -359,7 +358,7 @@ class CertUploaderApp(ctk.CTk):
             # -------------------------------------------------------------
             # PASSO 5: Instalar Certificado Digital no Windows
             # -------------------------------------------------------------
-            self._set_banner("Passo 5/7: Instalando certificado no repositório do Windows...", "working")
+            self._set_banner("Passo 5/5: Instalando certificado no repositório do Windows...", "working")
             self.logger.log("[PASSO 5] Instalando certificado no Windows (CurrentUser\\My) com chave exportável...")
             ok_win, win_msg = install_certificate_in_windows(cert_path, cert_pwd)
             self.logger.log(f"[PASSO 5] {win_msg}")
@@ -368,45 +367,37 @@ class CertUploaderApp(ctk.CTk):
             self._set_progress(0.80)
 
             # -------------------------------------------------------------
-            # PASSO 6: Upload no TPF / Plataforma Fiscal (Se usa NFe)
+            # Finalização com Sucesso e Lembrete TPF
             # -------------------------------------------------------------
-            if usa_nfe:
-                self._set_banner("Passo 6/7: Atualizando na Plataforma Fiscal (TPF)...", "working")
-                self.logger.log("[PASSO 6] Cliente utiliza NFe. Iniciando automação na Plataforma Fiscal (TPF)...")
-                tpf_uploader = TotvsTpfUploader(log_callback=self.logger.log, headless=False)
-                cnpj_alvo = cert.cnpj_formatado or format_cnpj(cert.cnpj_numeros) or loja.cnpj
-                self.logger.log(f"[PASSO 6] CNPJ do certificado para localização do estabelecimento: {cnpj_alvo}")
-                tpf_res = tpf_uploader.run(
-                    cert_path=cert_path,
-                    cert_password=cert_pwd,
-                    cnpj=cnpj_alvo,
-                    nome_loja=loja.nome_loja,
-                )
-                self.logger.log(f"[PASSO 6] Resultado TPF: {tpf_res}")
-            else:
-                self.logger.log("[PASSO 6] Cliente não possui movimentação de NFe recente. Passo 6 (TPF) ignorado conforme regra de negócio.")
-            self._set_progress(0.95)
-
-            # -------------------------------------------------------------
-            # Finalização com Sucesso
-            # -------------------------------------------------------------
-            self._set_banner("SUCESSO: Certificado digital atualizado em todas as plataformas!", "success")
+            self._set_banner("SUCESSO: Certificado digital atualizado nas plataformas!", "success")
             self.logger.log("=" * 60)
             self.logger.log("PROCESSO DE ATUALIZAÇÃO CONCLUÍDO COM ÊXITO!")
             self.logger.log("=" * 60)
+            if usa_nfe:
+                self.logger.log("[LEMBRETE OBRIGATÓRIO - NF-e / PLATAFORMA FISCAL TPF]")
+                self.logger.log("Identificada emissão ativa de NF-e nesta loja nos últimos 60 dias.")
+                self.logger.log("ATENÇÃO: O certificado digital deve ser atualizado MANUALMENTE")
+                self.logger.log("na Plataforma Fiscal TOTVS (TPF) pelo portal:")
+                self.logger.log("   URL: https://plataformafiscal.totvs.com.br/estabelecimento")
+            else:
+                self.logger.log("[LEMBRETE FISCAL - PLATAFORMA FISCAL TPF]")
+                self.logger.log("Caso esta loja utilize NF-e em outros módulos ou contingência,")
+                self.logger.log("lembre-se de atualizar o certificado manualmente pelo portal:")
+                self.logger.log("   URL: https://plataformafiscal.totvs.com.br/estabelecimento")
+            self.logger.log("=" * 60)
             self._set_progress(1.0)
 
-            # Envia telemetria por e-mail via Webhook
+            # Envia telemetria por e-mail via Webhook (contendo o lembrete no log)
             self.logger.dispatch_email(loja.nome_loja)
 
-            # PASSO 7: Diálogo de reinicialização do Windows
-            self.after(500, self._prompt_reboot)
+            # Diálogo de reinicialização do Windows
+            self.after(500, lambda: self._prompt_reboot(usa_nfe=usa_nfe))
 
         except DatabaseError as dberr:
             self._set_banner(f"ERRO DE BANCO: {dberr}", "error")
             self.logger.log(f"[ERRO FATAL BANCO] {dberr}")
             self.logger.dispatch_email(empresa_identificador)
-        except (TotvsTecError, TotvsChefWebError, TotvsTpfError) as autoerr:
+        except (TotvsTecError, TotvsChefWebError) as autoerr:
             self._set_banner(f"ERRO NA PLATAFORMA: {autoerr}", "error")
             self.logger.log(f"[ERRO FATAL AUTOMAÇÃO] {autoerr}")
             self.logger.dispatch_email(empresa_identificador)
@@ -419,21 +410,29 @@ class CertUploaderApp(ctk.CTk):
             self.is_running = False
             self.after(0, lambda: self.start_btn.configure(state="normal", text="INICIAR ATUALIZAÇÃO DO CERTIFICADO"))
 
-    def _prompt_reboot(self) -> None:
-        """Passo 7: Diálogo perguntando se o cliente deseja reiniciar o computador agora."""
+    def _prompt_reboot(self, usa_nfe: bool = False) -> None:
+        """Diálogo perguntando se o cliente deseja reiniciar o computador agora."""
+        aviso_tpf = (
+            "\n\n[LEMBRETE IMPORTANTE]:\nComo esta loja possui emissão de NF-e, "
+            "lembre-se de atualizar o certificado MANUALMENTE na Plataforma Fiscal TOTVS:\n"
+            "https://plataformafiscal.totvs.com.br/estabelecimento"
+            if usa_nfe
+            else ""
+        )
         resposta = msgbox.askyesno(
             "Reiniciar Computador",
             "A atualização do certificado digital foi concluída com sucesso!\n\n"
             "Para que todas as alterações tenham efeito no sistema fiscal, "
-            "é recomendável reiniciar o computador.\n\n"
+            "é recomendável reiniciar o computador."
+            f"{aviso_tpf}\n\n"
             "Deseja reiniciar o computador agora?",
         )
         if resposta:
-            self.logger.log("[PASSO 7] Reinicialização autorizada pelo cliente. Reiniciando Windows em 5 segundos...")
+            self.logger.log("[REINICIALIZAÇÃO] Reinicialização autorizada pelo cliente. Reiniciando Windows em 5 segundos...")
             ok, msg = reiniciar_computador_windows(delay_segundos=5)
-            self.logger.log(f"[PASSO 7] {msg}")
+            self.logger.log(f"[REINICIALIZAÇÃO] {msg}")
         else:
-            self.logger.log("[PASSO 7] Cliente optou por reiniciar mais tarde. Concluído sem reiniciar.")
+            self.logger.log("[REINICIALIZAÇÃO] Cliente optou por reiniciar mais tarde. Concluído sem reiniciar.")
 
 
 if __name__ == "__main__":

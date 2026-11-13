@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = []
 binaries = []
-hiddenimports = ['secrets_manager', 'pyodbc', 'requests', 'cryptography', 'cert_manager', 'db_service', 'logger_service', 'reboot_service', 'totvs_chef_web', 'totvs_tec', 'totvs_tpf']
+hiddenimports = ['secrets_manager', 'pyodbc', 'requests', 'cryptography', 'cert_manager', 'db_service', 'logger_service', 'reboot_service', 'totvs_chef_web', 'totvs_tec']
 
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]

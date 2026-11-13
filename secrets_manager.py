@@ -1,17 +1,15 @@
 """
-Gerenciamento seguro de credenciais e configurações internas da Softbr.
-Lê as configurações a partir do arquivo .env ou variáveis de ambiente.
-NENHUMA SENHA DEVE SER COMMITADA OU HARDCODED NESTE ARQUIVO.
+Gerenciador de Credenciais e Segredos do Projeto.
+Armazena e recupera credenciais em arquivo .env na raiz do projeto.
+Fornece interface interativa por linha de comando (CLI) para consulta e alteração.
 """
 
 import os
-import sys
 from pathlib import Path
+from typing import Optional
 
 
 def _get_project_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
 
 
@@ -27,8 +25,6 @@ DEFAULT_SECRETS = {
     "SQL_USER": "sa",
     "SQL_PASSWORD": "",
     "GAS_WEBHOOK_URL": "",
-    "TPF_USER": "",
-    "TPF_PASSWORD": "",
 }
 
 
@@ -53,75 +49,56 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return result
 
 
-def load_secrets() -> dict[str, str]:
-    """Carrega as credenciais a partir do arquivo .env ou variáveis de ambiente."""
-    secrets = dict(DEFAULT_SECRETS)
-
-    # 1. Tenta carregar do .env no diretório do projeto ou no diretório atual
-    env_paths = [
-        ENV_FILE,
-        Path.cwd() / ".env",
-    ]
-    for p in env_paths:
-        if p.is_file():
-            loaded = _parse_env_file(p)
-            for k, v in loaded.items():
-                if v:
-                    secrets[k] = v
-            break
-
-    # 2. Variáveis de ambiente têm precedência se definidas
-    for k in DEFAULT_SECRETS:
-        env_val = os.environ.get(k)
-        if env_val:
-            secrets[k] = env_val
-
-    # 3. Fallback legado para _secrets.py local (se existir e não estiver em .env)
-    try:
-        import _secrets
-        if hasattr(_secrets, "ENC_SECRETS"):
-            import base64
-            key = bytes([0x5A, 0x3C, 0x7F, 0x19, 0xA2, 0x4D, 0x88, 0xE1])
-            for k, enc_val in _secrets.ENC_SECRETS.items():
-                if not secrets.get(k):
-                    try:
-                        raw = bytes(b ^ key[i % len(key)] for i, b in enumerate(base64.b64decode(enc_val)))
-                        secrets[k] = raw.decode("utf-8")
-                    except Exception:
-                        pass
-    except Exception:
-        pass
-
-    return secrets
-
-
-def save_secrets(secrets_dict: dict[str, str], target_file: Path | None = None) -> None:
-    """Salva as credenciais no arquivo .env local (ignorado pelo git)."""
-    target = target_file or ENV_FILE
+def _write_env_file(path: Path, secrets: dict[str, str]) -> None:
+    """Grava as variáveis de ambiente no formato .env padronizado."""
     lines = [
-        "# Configurações locais da aplicação - NUNCA ENVIE ESTE ARQUIVO AO GITHUB",
-        "# Para compartilhar com a equipe, use o modelo .env.example",
+        "# Arquivo de configuracao de credenciais do Atualizador TOTVS Cert",
+        "# Mantenha este arquivo seguro e nao compartilhe publicamente.",
         "",
     ]
-    for k, v in secrets_dict.items():
+    for k, v in secrets.items():
         lines.append(f"{k}={v}")
     lines.append("")
-    target.write_text("\n".join(lines), encoding="utf-8")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def load_secrets() -> dict[str, str]:
+    """
+    Carrega as credenciais a partir do arquivo .env.
+    Se alguma chave não estiver definida, utiliza os valores padrão.
+    """
+    data = DEFAULT_SECRETS.copy()
+    if ENV_FILE.is_file():
+        env_data = _parse_env_file(ENV_FILE)
+        data.update(env_data)
+    # Permite sobrescrita por variáveis de ambiente do sistema operacional se existirem
+    for k in data.keys():
+        if k in os.environ and os.environ[k].strip():
+            data[k] = os.environ[k].strip()
+    return data
+
+
+def save_secrets(secrets: dict[str, str], target_file: Optional[Path] = None) -> None:
+    """Salva o dicionário de segredos no arquivo .env local."""
+    dest = target_file or ENV_FILE
+    _write_env_file(dest, secrets)
 
 
 def mask_secret(value: str) -> str:
+    """Retorna uma versão mascarada da senha para exibição segura na tela."""
     if not value:
-        return "(vazio)"
+        return "<não configurada>"
     if len(value) <= 4:
         return "*" * len(value)
-    return value[:2] + ("*" * (len(value) - 4)) + value[-2:]
+    return f"{value[:2]}{'*' * (len(value) - 4)}{value[-2:]}"
 
 
-def cli_interactive_prompt() -> None:
-    """Prompt interativo para consultar e alterar senhas da aplicação."""
-    print("=" * 60)
-    print("      SOFTBR - GERENCIADOR DE SENHAS E INTEGRAÇÕES")
-    print("=" * 60)
+def interactive_cli() -> None:
+    """Interface CLI interativa para consulta e alteração das senhas."""
+    print("=" * 70)
+    print("   GERENCIADOR DE CREDENCIAIS - ATUALIZADOR TOTVS CERT (SOFTBR)")
+    print("=" * 70)
+    print(f"Arquivo de destino: {ENV_FILE}")
     
     current = load_secrets()
     labels = {
@@ -132,8 +109,6 @@ def cli_interactive_prompt() -> None:
         "SQL_USER": "SQL Server - Usuário (sa)",
         "SQL_PASSWORD": "SQL Server - Senha (sa)",
         "GAS_WEBHOOK_URL": "Webhook Google Apps Script (Envio de Logs)",
-        "TPF_USER": "Plataforma Fiscal TPF - Usuário (opcional)",
-        "TPF_PASSWORD": "Plataforma Fiscal TPF - Senha (opcional)",
     }
 
     while True:
@@ -146,7 +121,7 @@ def cli_interactive_prompt() -> None:
             print(f"  [{idx}] {labels[key]}: {display}")
 
         print("\nOpções:")
-        print("  [1-9] Alterar credencial correspondente")
+        print("  [1-7] Alterar credencial correspondente")
         print("  [V]   Visualizar credenciais sem máscara")
         print("  [S]   Salvar no .env local e Sair")
         print("  [Q]   Sair sem salvar")
@@ -158,23 +133,28 @@ def cli_interactive_prompt() -> None:
             print(f"\nCredenciais salvas com sucesso em: {ENV_FILE}")
             break
         elif choice == "Q":
-            print("\nOperação cancelada.")
+            print("\nOperação cancelada. Nenhuma alteração foi gravada.")
             break
         elif choice == "V":
-            print("\n--- Credenciais sem máscara ---")
-            for key in keys:
-                print(f"{labels[key]}: {current.get(key, '')}")
-            input("\nPressione [Enter] para continuar...")
+            print("\n--- CREDENCIAIS EM TEXTO PURO ---")
+            for idx, key in enumerate(keys, 1):
+                print(f"  [{idx}] {labels[key]}: {current.get(key, '')}")
+            input("\nPressione ENTER para continuar...")
         elif choice.isdigit() and 1 <= int(choice) <= len(keys):
-            target_key = keys[int(choice) - 1]
-            print(f"\nValor atual de {labels[target_key]}: {current.get(target_key, '')}")
-            new_val = input(f"Novo valor para {labels[target_key]} (ou Enter para manter): ").strip()
-            if new_val != "":
-                current[target_key] = new_val
-                print(f"-> {labels[target_key]} atualizado na memória. (Lembre-se de teclar 'S' para salvar)")
+            selected_key = keys[int(choice) - 1]
+            label = labels[selected_key]
+            current_val = current.get(selected_key, "")
+            print(f"\nAlterando: {label}")
+            print(f"Valor atual: {mask_secret(current_val)}")
+            new_val = input("Digite o novo valor (ou ENTER para manter o atual): ").strip()
+            if new_val:
+                current[selected_key] = new_val
+                print(f"-> {label} atualizado!")
+            else:
+                print("-> Valor mantido inalterado.")
         else:
-            print("Opção inválida. Tente novamente.")
+            print("Opção inválida! Escolha entre 1 e 7, ou V, S, Q.")
 
 
 if __name__ == "__main__":
-    cli_interactive_prompt()
+    interactive_cli()
