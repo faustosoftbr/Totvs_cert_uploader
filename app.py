@@ -1,8 +1,9 @@
 """
 Aplicativo Desktop para Atualização de Certificado Digital - Softbr (v3.0.0).
-Interface gráfica nativa intuitiva em CustomTkinter com execução dos Passos 1 a 7 em segundo plano.
+Interface gráfica nativa intuitiva em CustomTkinter com execução automatizada do pipeline em segundo plano.
 """
 
+import re
 import threading
 import tkinter.messagebox as msgbox
 from datetime import datetime
@@ -302,69 +303,71 @@ class CertUploaderApp(ctk.CTk):
         cert_path = cert.file_path
         cert_pwd = self.cert_pwd_entry.get()
         empresa_identificador = cert.cnpj_formatado or cert.razao_social
+        usa_nfe = False
 
         db_service = DatabaseService()
         try:
             # -------------------------------------------------------------
-            # PASSO 2: Consultar e Atualizar SQL Server local (Loja 1)
+            # PASSO 2: Instalar Certificado Digital no Windows
             # -------------------------------------------------------------
-            self._set_banner("Passo 2/5: Conectando ao SQL Server e consultando Loja 1...", "working")
-            self.logger.log("[PASSO 2] Conectando ao banco de dados MISTERCHEFNET...")
-            loja = db_service.consultar_loja_1()
-            empresa_identificador = f"{loja.nome_loja} ({loja.cnpj})"
-            self.logger.log(f"[PASSO 2] Loja 1 identificada no SQL: Nome: '{loja.nome_loja}', CNPJ: '{loja.cnpj}'")
+            self._set_banner("Passo 2/5: Instalando certificado no repositório do Windows...", "working")
+            self.logger.log("[PASSO 2] Instalando certificado no Windows (CurrentUser\\My) com chave exportável...")
+            ok_win, win_msg = install_certificate_in_windows(cert_path, cert_pwd)
+            self.logger.log(f"[PASSO 2] {win_msg}")
+            if not ok_win:
+                self.logger.log("[PASSO 2] Aviso: Não foi possível registrar no Windows Store, mas prosseguindo.")
+            self._set_progress(0.20)
 
-            # Validação do CNPJ: na versão 3.0.0 de testes, apenas registra se houver divergência
-            cnpj_sql_limpo = loja.cnpj.replace(".", "").replace("/", "").replace("-", "")
-            if cert.cnpj_numeros and cnpj_sql_limpo and cert.cnpj_numeros != cnpj_sql_limpo:
-                self.logger.log(
-                    f"[AVISO v3.0.0] Divergência entre CNPJ do certificado ({cert.cnpj_numeros}) "
-                    f"e CNPJ do banco ({cnpj_sql_limpo}). Prosseguindo para validação técnica..."
-                )
+            # -------------------------------------------------------------
+            # PASSO 3: Localizar Loja pelo CNPJ do Certificado e Atualizar SQL Server
+            # -------------------------------------------------------------
+            self._set_banner("Passo 3/5: Localizando loja pelo CNPJ no SQL Server...", "working")
+            self.logger.log("[PASSO 3] Conectando ao banco de dados MISTERCHEFNET...")
+
+            cnpj_cert = cert.cnpj_numeros or re.sub(r"\D", "", cert.cnpj_formatado or "")
+            if not cnpj_cert:
+                raise DatabaseError("Não foi possível identificar o CNPJ do certificado digital para localizar a loja no banco.")
+
+            self.logger.log(f"[PASSO 3] Comparando CNPJ do certificado ({cert.cnpj_formatado or cnpj_cert}) com as lojas do banco...")
+            loja = db_service.buscar_loja_por_cnpj(cnpj_cert)
+            empresa_identificador = f"{loja.nome_loja} ({loja.cnpj})"
+            self.logger.log(
+                f"[PASSO 3] Loja correspondente selecionada: Código {loja.codigo_loja} | "
+                f"Nome Fantasia: '{loja.nome_loja}' | CNPJ: '{loja.cnpj}' | Razão Social: '{loja.razao_social}'"
+            )
 
             # Verifica se utiliza módulo NFe
             usa_nfe = db_service.verificar_licenca_nfe()
-            self.logger.log(f"[PASSO 2] Verificação de módulo NFe (últimos 60 dias): {'SIM (Ativo)' if usa_nfe else 'NÃO (Apenas NFCe)'}")
+            self.logger.log(f"[PASSO 3] Verificação de módulo NFe (últimos 60 dias): {'SIM (Ativo)' if usa_nfe else 'NÃO (Apenas NFCe)'}")
 
-            # Atualiza o campo [NomeCertificado] com o Subject DN na ordem canônica do Totvs Chef
+            # Atualiza o campo [NomeCertificado] com o Subject DN na ordem canônica do Totvs Chef para a loja correspondente
             subject_formatado = format_subject_dn_totvs_order(cert.subject_dn)
-            self.logger.log(f"[PASSO 2] Atualizando [NomeCertificado] da Loja 1 para: {subject_formatado}")
-            db_service.atualizar_certificado_loja_1(subject_formatado)
-            self.logger.log("[PASSO 2] Banco de dados SQL Server atualizado com sucesso!")
-            self._set_progress(0.25)
+            self.logger.log(f"[PASSO 3] Atualizando [NomeCertificado] da Loja {loja.codigo_loja} ('{loja.nome_loja}') para: {subject_formatado}")
+            db_service.atualizar_certificado_loja(loja.codigo_loja, subject_formatado)
+            self.logger.log(f"[PASSO 3] Banco de dados SQL Server atualizado com sucesso para a Loja {loja.codigo_loja}!")
+            self._set_progress(0.40)
 
             # -------------------------------------------------------------
-            # PASSO 3: Atualizar Portal TEC (Totvs Hospitalidade)
+            # PASSO 4: Atualizar Portal TEC (Totvs Hospitalidade)
             # -------------------------------------------------------------
-            self._set_banner("Passo 3/5: Enviando certificado para o Portal TEC...", "working")
-            self.logger.log("[PASSO 3] Iniciando automação no Portal TEC...")
+            self._set_banner("Passo 4/5: Enviando certificado para o Portal TEC...", "working")
+            self.logger.log("[PASSO 4] Iniciando automação no Portal TEC...")
             tec_uploader = TotvsTecUploader(log_callback=self.logger.log, headless=False)
-            target_cnpj = cert.cnpj_formatado or format_cnpj(cert.cnpj_numeros) or loja.cnpj
-            self.logger.log(f"[PASSO 3] Buscando empresa no Portal TEC pelo CNPJ do certificado: {target_cnpj}")
+            target_cnpj = loja.cnpj or cert.cnpj_formatado or format_cnpj(cert.cnpj_numeros)
+            self.logger.log(f"[PASSO 4] Buscando empresa no Portal TEC pelo CNPJ da loja selecionada ('{loja.nome_loja}'): {target_cnpj}")
             tec_res = tec_uploader.run(cnpj_formatado=format_cnpj(target_cnpj), cert_path=cert_path, cert_password=cert_pwd)
-            self.logger.log(f"[PASSO 3] Resultado Portal TEC: {tec_res}")
-            self._set_progress(0.45)
-
-            # -------------------------------------------------------------
-            # PASSO 4: Atualizar Chef Web Cloud
-            # -------------------------------------------------------------
-            self._set_banner("Passo 4/5: Atualizando certificado no Chef Web Cloud...", "working")
-            self.logger.log(f"[PASSO 4] Iniciando automação no Chef Web Cloud para '{loja.nome_loja}'...")
-            chef_uploader = TotvsChefWebUploader(log_callback=self.logger.log, headless=False)
-            chef_res = chef_uploader.run(nome_loja=loja.nome_loja, cert_path=cert_path, cert_password=cert_pwd)
-            self.logger.log(f"[PASSO 4] Resultado Chef Web: {chef_res}")
+            self.logger.log(f"[PASSO 4] Resultado Portal TEC: {tec_res}")
             self._set_progress(0.65)
 
             # -------------------------------------------------------------
-            # PASSO 5: Instalar Certificado Digital no Windows
+            # PASSO 5: Atualizar Chef Web Cloud
             # -------------------------------------------------------------
-            self._set_banner("Passo 5/5: Instalando certificado no repositório do Windows...", "working")
-            self.logger.log("[PASSO 5] Instalando certificado no Windows (CurrentUser\\My) com chave exportável...")
-            ok_win, win_msg = install_certificate_in_windows(cert_path, cert_pwd)
-            self.logger.log(f"[PASSO 5] {win_msg}")
-            if not ok_win:
-                self.logger.log("[PASSO 5] Aviso: Não foi possível registrar no Windows Store, mas prosseguindo.")
-            self._set_progress(0.80)
+            self._set_banner("Passo 5/5: Atualizando certificado no Chef Web Cloud...", "working")
+            self.logger.log(f"[PASSO 5] Iniciando automação no Chef Web Cloud para a loja '{loja.nome_loja}' (Nome Fantasia)...")
+            chef_uploader = TotvsChefWebUploader(log_callback=self.logger.log, headless=False)
+            chef_res = chef_uploader.run(nome_loja=loja.nome_loja, cert_path=cert_path, cert_password=cert_pwd)
+            self.logger.log(f"[PASSO 5] Resultado Chef Web: {chef_res}")
+            self._set_progress(0.85)
 
             # -------------------------------------------------------------
             # Finalização com Sucesso e Lembrete TPF

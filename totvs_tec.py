@@ -1,5 +1,5 @@
 """
-Automação do Portal TEC Totvs Hospitalidade (Passo 3).
+Automação do Portal TEC Totvs Hospitalidade (Passo 4).
 URL: https://tec.totvshospitalidade.com/auth/login
 Efetua login com credenciais de parceiro, localiza o tenant pelo CNPJ e anexa o certificado.
 """

@@ -127,6 +127,30 @@ class TestTotvsCertUploader(unittest.TestCase):
         janaina_formatted = cert_manager.format_subject_dn_totvs_order(janaina_expected)
         self.assertEqual(janaina_formatted, janaina_expected)
 
+    def test_buscar_loja_por_cnpj_matching(self):
+        """Valida a busca e seleção dinâmica de loja pelo CNPJ (com ou sem pontuação)."""
+        db = db_service.DatabaseService()
+        lojas_mock = [
+            db_service.LojaInfo(codigo_loja=1, nome_loja="MATRIZ CENTRO", cnpj="11.222.333/0001-44", razao_social="EMPRESA 1 LTDA", nome_certificado=None),
+            db_service.LojaInfo(codigo_loja=2, nome_loja="FILIAL SHOPPING", cnpj="55.666.777/0001-88", razao_social="EMPRESA 2 LTDA", nome_certificado=None),
+        ]
+        db.consultar_todas_lojas = lambda: lojas_mock
+
+        # Teste 1: busca por CNPJ apenas números correspondente à Filial (Loja 2)
+        loja_encontrada = db.buscar_loja_por_cnpj("55666777000188")
+        self.assertEqual(loja_encontrada.codigo_loja, 2)
+        self.assertEqual(loja_encontrada.nome_loja, "FILIAL SHOPPING")
+
+        # Teste 2: busca por CNPJ formatado correspondente à Matriz (Loja 1)
+        loja_encontrada = db.buscar_loja_por_cnpj("11.222.333/0001-44")
+        self.assertEqual(loja_encontrada.codigo_loja, 1)
+        self.assertEqual(loja_encontrada.nome_loja, "MATRIZ CENTRO")
+
+        # Teste 3: CNPJ que não existe no banco deve disparar DatabaseError
+        with self.assertRaises(db_service.DatabaseError) as ctx:
+            db.buscar_loja_por_cnpj("99.999.999/0001-99")
+        self.assertIn("Nenhuma loja com o CNPJ", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

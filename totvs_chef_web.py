@@ -1,5 +1,5 @@
 """
-Automação do Totvs Chef Web Cloud (Passo 4).
+Automação do Totvs Chef Web Cloud (Passo 5).
 URL: https://chefwebcloud.chef.totvs.com.br
 Login administrativo com SOFTBR.05, localização da loja por Nome Fantasia,
 navegação para Cadastros > Loja > Aba Recepção NF-e, upload do PFX e salvamento.

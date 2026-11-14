@@ -186,7 +186,7 @@ def read_pfx_certificate(file_path: str, password: str) -> CertificateInfo:
 
 def install_certificate_in_windows(file_path: str, password: str, store_location: str = "Cert:\\CurrentUser\\My") -> tuple[bool, str]:
     """
-    Instala o certificado .pfx no repositório de certificados do Windows (Passo 5).
+    Instala o certificado .pfx no repositório de certificados do Windows (Passo 2).
     Por padrão instala em CurrentUser\\My (Pessoal) com a chave privada marcada como Exportável.
     Não requer privilégios de Administrador.
     """

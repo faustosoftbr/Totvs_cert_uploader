@@ -23,7 +23,7 @@ Em vez de depender de um site remoto limitado, o cliente recebe um executável �
 | :--- | :--- |
 | **`v1.0.0`** | Versão inicial com campos manuais de login e senha do Portal TEC. |
 | **`v2.0.0`** | Versão para cliente final com credenciais embutidas e upload exclusivo no Portal TEC. |
-| **`v3.0.0`** | **Pipeline Completo Integrado**: <br>1. Validação local do PFX (CNPJ, Razão Social, Validade e Subject DN).<br>2. Consulta e atualização do SQL Server local (`[MISTERCHEFNET].[dbo].[Lojas]`).<br>3. Upload no Portal TEC (Totvs Hospitalidade).<br>4. Upload no Chef Web Cloud (localizando a loja pelo Nome Fantasia).<br>5. Instalação do certificado no repositório do Windows como Exportável.<br>6. Lembrete com link direto no log para atualização manual na Plataforma Fiscal TPF (caso utilize módulo NFe).<br>7. Solicitação opcional de reinicialização do Windows.<br>8. Telemetria e envio de logs por e-mail via Google Apps Script Webhook. |
+| **`v3.0.0`** | **Pipeline Completo Integrado**: <br>1. Validação local do PFX (CNPJ, Razão Social, Validade e Subject DN).<br>2. Instalação do certificado no repositório do Windows como Exportável (`Cert:\CurrentUser\My`).<br>3. Localização dinâmica da Loja no SQL Server local por correspondência exata do CNPJ do certificado e atualização de `[NomeCertificado]`.<br>4. Upload no Portal TEC (Totvs Hospitalidade) utilizando o CNPJ da loja selecionada.<br>5. Upload no Chef Web Cloud (localizando a loja pelo Nome Fantasia da loja selecionada).<br>6. Lembrete com link direto no log para atualização manual na Plataforma Fiscal TPF (caso utilize módulo NFe).<br>7. Solicitação opcional de reinicialização do Windows.<br>8. Telemetria e envio de logs por e-mail via Google Apps Script Webhook. |
 
 ---
 
