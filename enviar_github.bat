@@ -23,10 +23,11 @@ if %errorlevel% == 0 (
 
 echo [OK] Nenhum arquivo sensivel rastreado no Git.
 echo.
-echo Enviando commits para o GitHub (branch main)...
+echo Enviando commits e tags para o GitHub (branch main)...
 echo Se aparecer a janela de login do GitHub, faca o login com a sua NOVA CONTA e autorize.
 echo.
 git push -u origin main
+git push --tags
 echo.
 git status -sb
 pause

@@ -1,5 +1,5 @@
 """
-Bateria de testes automatizados para o Atualizador de Certificado Digital v3.0.0.
+Bateria de testes automatizados para o Atualizador de Certificado Digital v4.0.0.
 Valida:
 1. Persistência e leitura segura de variáveis de ambiente (.env).
 2. Leitura, decodificação PKCS#12 e geração de Subject DN (cert_manager).

@@ -23,8 +23,9 @@ fi
 
 echo "[OK] Nenhum arquivo sensível rastreado no Git."
 echo ""
-echo "Enviando commits para o GitHub (branch main)..."
+echo "Enviando commits e tags para o GitHub (branch main)..."
 echo ""
 git push -u origin main
+git push --tags
 echo ""
 git status -sb
