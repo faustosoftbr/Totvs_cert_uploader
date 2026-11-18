@@ -43,6 +43,6 @@ jobs:
         with:
           files: dist/TOTVS-Cert-Uploader.exe
           name: Release ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
-          generate_release_notes: true
