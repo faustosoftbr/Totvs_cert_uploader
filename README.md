@@ -31,7 +31,7 @@ Em vez de depender de um site remoto limitado, o cliente recebe um executável �
 
 - `app.py`: Interface gráfica CustomTkinter e orquestração do pipeline em thread desacoplada.
 - `cert_manager.py`: Extração e validação de certificados PKCS#12 e rotinas de instalação no Windows Store.
-- `db_service.py`: Camada de comunicação com o SQL Server local (Loja 1 e detecção de NFe).
+- `db_service.py`: Camada de comunicação com o SQL Server local (localização dinâmica de lojas por CNPJ e detecção de NFe).
 - `totvs_tec.py`: Automação Playwright em segundo plano para o Portal TEC.
 - `totvs_chef_web.py`: Automação Playwright para o Chef Web Cloud.
 - `logger_service.py`: Log em tempo real, persistência em arquivo e despacho via Webhook.
